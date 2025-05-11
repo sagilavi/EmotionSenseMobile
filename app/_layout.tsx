@@ -5,10 +5,6 @@ import { useCallback } from 'react';
 import { useColorScheme, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from 'react-native-paper';
-import { enableScreens } from 'react-native-screens';
-
-// Enable screens for better performance
-enableScreens();
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -36,16 +32,28 @@ export default function RootLayout() {
           <Drawer
             screenOptions={{
               headerStyle: {
-                backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#ffffff',
+                backgroundColor: '#4A90E2',
               },
-              headerTintColor: colorScheme === 'dark' ? '#ffffff' : '#000000',
+              headerTintColor: '#FFFFFF',
               drawerStyle: {
-                backgroundColor: colorScheme === 'dark' ? '#1a1a1a' : '#ffffff',
+                backgroundColor: '#F5F5F5',
+                width: 240,
               },
-              drawerActiveTintColor: '#007AFF',
+              drawerActiveTintColor: '#4A90E2',
+              drawerInactiveTintColor: '#666666',
+              drawerLabelStyle: {
+                fontSize: 16,
+                fontWeight: '500',
+                marginLeft: -20,
+              },
+              drawerItemStyle: {
+                borderRadius: 8,
+                marginHorizontal: 8,
+                marginVertical: 4,
+              },
+              drawerActiveBackgroundColor: '#E3F2FD',
               swipeEnabled: true,
               headerShown: true,
-              drawerType: 'front',
             }}
           >
             <Drawer.Screen
@@ -53,7 +61,9 @@ export default function RootLayout() {
               options={{
                 title: 'Home',
                 drawerLabel: 'Home',
-                headerShown: true,
+                drawerIcon: ({ color }) => (
+                  <View style={{ width: 24, height: 24, backgroundColor: '#4A90E2', borderRadius: 12 }} />
+                ),
               }}
             />
             <Drawer.Screen
@@ -61,7 +71,9 @@ export default function RootLayout() {
               options={{
                 title: 'Activation',
                 drawerLabel: 'Activation',
-                headerShown: true,
+                drawerIcon: ({ color }) => (
+                  <View style={{ width: 24, height: 24, backgroundColor: '#50C878', borderRadius: 12 }} />
+                ),
               }}
             />
             <Drawer.Screen
@@ -69,7 +81,9 @@ export default function RootLayout() {
               options={{
                 title: 'MindFlow',
                 drawerLabel: 'MindFlow',
-                headerShown: true,
+                drawerIcon: ({ color }) => (
+                  <View style={{ width: 24, height: 24, backgroundColor: '#FF6B6B', borderRadius: 12 }} />
+                ),
               }}
             />
           </Drawer>
