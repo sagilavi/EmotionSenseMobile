@@ -1,94 +1,109 @@
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
-import { Button, SegmentedButtons, Text } from 'react-native-paper';
-
-// Mock data for the chart
-const mockData = {
-  labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
-  datasets: [
-    {
-      data: [5, 4, 7, 8, 6, 5],
-      color: (opacity = 1) => `rgba(255, 99, 132, ${opacity})`,
-      strokeWidth: 2,
-    },
-    {
-      data: [3, 5, 4, 6, 7, 4],
-      color: (opacity = 1) => `rgba(54, 162, 235, ${opacity})`,
-      strokeWidth: 2,
-    },
-    {
-      data: [6, 7, 5, 4, 5, 6],
-      color: (opacity = 1) => `rgba(75, 192, 192, ${opacity})`,
-      strokeWidth: 2,
-    },
-  ],
-};
-
-const chartConfig = {
-  backgroundGradientFrom: '#ffffff',
-  backgroundGradientTo: '#ffffff',
-  decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-  style: {
-    borderRadius: 16,
-  },
-  propsForDots: {
-    r: '6',
-    strokeWidth: '2',
-  },
-};
+import { startBackgroundRecording, stopBackgroundRecording } from '@/components/BackgroundTaskManager';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Button, Card, Text, useTheme } from 'react-native-paper';
 
 export default function MindFlowPage() {
-  const [timeRange, setTimeRange] = useState('day');
-  const screenWidth = Dimensions.get('window').width;
+  const theme = useTheme();
+  const [isRecording, setIsRecording] = useState(false);
+  const [frequency, setFrequency] = useState('30');
+  const [duration, setDuration] = useState('30');
+  const [lastRecordingTime, setLastRecordingTime] = useState<string | null>(null);
+
+  // Load settings from AsyncStorage
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await AsyncStorage.getItem('recordingSettings');
+        if (settings) {
+          const { frequency: savedFrequency, duration: savedDuration } = JSON.parse(settings);
+          setFrequency(savedFrequency);
+          setDuration(savedDuration);
+        }
+      } catch (error) {
+        console.error('Failed to load recording settings:', error);
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  useEffect(() => {
+    // Set up notification listener
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      const timestamp = notification.request.content.data?.timestamp as string;
+      if (timestamp) {
+        setLastRecordingTime(timestamp);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const handleStartRecording = async () => {
+    const success = await startBackgroundRecording(
+      parseInt(frequency),
+      parseInt(duration)
+    );
+    if (success) {
+      setIsRecording(true);
+    }
+  };
+
+  const handleStopRecording = async () => {
+    const success = await stopBackgroundRecording();
+    if (success) {
+      setIsRecording(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.header}>
-        Your Emotional Flow
-      </Text>
-
-      <View style={styles.chartContainer}>
-        <LineChart
-          data={mockData}
-          width={screenWidth - 40}
-          height={220}
-          chartConfig={chartConfig}
-          bezier
-          style={styles.chart}
+      <View style={styles.content}>
+        <MaterialCommunityIcons
+          name="brain"
+          size={120}
+          color={theme.colors.primary}
+          style={styles.icon}
         />
-      </View>
+        <Text variant="headlineLarge" style={styles.headline}>
+          MindFlow Analysis
+        </Text>
+        <Text variant="bodyLarge" style={styles.subtext}>
+          Record audio snippets to analyze your emotional patterns throughout the day.
+        </Text>
 
-      <View style={styles.controls}>
-        <SegmentedButtons
-          value={timeRange}
-          onValueChange={setTimeRange}
-          buttons={[
-            { value: 'day', label: 'Day' },
-            { value: 'week', label: 'Week' },
-            { value: 'month', label: 'Month' },
-          ]}
-          style={styles.segmentedButtons}
-        />
-
-        <View style={styles.navigationButtons}>
-          <Button mode="outlined" onPress={() => {}} style={styles.navButton}>
-            Previous
-          </Button>
-          <Button mode="outlined" onPress={() => {}} style={styles.navButton}>
-            Next
-          </Button>
-        </View>
+        <Card style={styles.card}>
+          <Card.Content>
+            <Text variant="titleMedium" style={styles.sectionTitle}>
+              Recording Settings
+            </Text>
+            <Text variant="bodyMedium">
+              Frequency: Every {frequency} minutes
+            </Text>
+            <Text variant="bodyMedium">
+              Duration: {duration} seconds per recording
+            </Text>
+            {lastRecordingTime && (
+              <Text variant="bodyMedium" style={styles.lastRecording}>
+                Last recording: {new Date(lastRecordingTime).toLocaleString()}
+              </Text>
+            )}
+          </Card.Content>
+        </Card>
 
         <Button
           mode="contained"
-          onPress={() => {}}
-          icon="whatsapp"
-          style={styles.shareButton}
+          onPress={isRecording ? handleStopRecording : handleStartRecording}
+          style={styles.button}
+          icon={isRecording ? 'stop' : 'play'}
         >
-          Share
+          {isRecording ? 'Stop Recording' : 'Start Recording'}
         </Button>
       </View>
     </View>
@@ -99,36 +114,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
     padding: 20,
   },
-  header: {
+  icon: {
+    marginBottom: 30,
+  },
+  headline: {
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
     fontWeight: 'bold',
   },
-  chartContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
+  subtext: {
+    textAlign: 'center',
+    opacity: 0.8,
+    marginBottom: 30,
   },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
+  card: {
+    width: '100%',
+    marginBottom: 20,
   },
-  controls: {
-    gap: 16,
+  sectionTitle: {
+    marginBottom: 12,
   },
-  segmentedButtons: {
-    marginBottom: 8,
+  lastRecording: {
+    marginTop: 12,
+    fontStyle: 'italic',
   },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  navButton: {
-    flex: 1,
-  },
-  shareButton: {
-    marginTop: 8,
+  button: {
+    marginTop: 20,
+    paddingVertical: 8,
   },
 }); 
