@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View, StyleSheet, AppState, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Text, Button, Title, RadioButton, TextInput, Divider } from 'react-native-paper';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-import Voice from '@react-native-voice/voice';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+
+const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const getMicrophonePermission = async () => {
   const micPerm = Platform.select({
@@ -38,14 +40,18 @@ const ActivationScreen: React.FC = () => {
   const [hasAskedPermission, setHasAskedPermission] = useState(false);
   const [recordings, setRecordings] = useState<string[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getFreq = () => parseInt(frequency === 'custom' ? customFrequency : frequency, 10) * 60 * 1000;
   const getDur = () => parseInt(duration === 'custom' ? customDuration : duration, 10) * 1000;
 
   const startRecording = async () => {
     try {
-      await Voice.start('en-US');
-      // TODO: Save the audio file path after recording
+      const result = await audioRecorderPlayer.startRecorder();
+      // Stop after duration
+      timeoutRef.current = setTimeout(async () => {
+        await stopRecording();
+      }, getDur());
     } catch (e) {
       console.warn('Failed to start recording', e);
     }
@@ -53,8 +59,9 @@ const ActivationScreen: React.FC = () => {
 
   const stopRecording = async () => {
     try {
-      await Voice.stop();
-      // TODO: Save the audio file path after recording
+      const result = await audioRecorderPlayer.stopRecorder();
+      if (result) setRecordings(prev => [...prev, result]);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (e) {
       console.warn('Failed to stop recording', e);
     }
@@ -70,6 +77,8 @@ const ActivationScreen: React.FC = () => {
   const clearRecordingSchedule = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
   };
 
   const handleStartPause = async () => {
@@ -146,6 +155,11 @@ const ActivationScreen: React.FC = () => {
       <Text style={styles.permissionNote}>
         Permissions for microphone, storage, and background use will be requested on first analysis.
       </Text>
+      <Divider style={{ marginVertical: 16 }} />
+      <Text style={styles.label}>Recordings:</Text>
+      {recordings.map((rec, idx) => (
+        <Text key={idx} style={{ fontSize: 12 }}>{rec}</Text>
+      ))}
     </View>
   );
 };
