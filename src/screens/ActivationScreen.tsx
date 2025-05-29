@@ -3,6 +3,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import { Text, Button, Title, RadioButton, TextInput, Divider } from 'react-native-paper';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import { useRecordings } from '../context/RecordingsContext';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
@@ -38,17 +39,26 @@ const ActivationScreen: React.FC = () => {
   const [duration, setDuration] = useState('20');
   const [customDuration, setCustomDuration] = useState('');
   const [hasAskedPermission, setHasAskedPermission] = useState(false);
-  const [recordings, setRecordings] = useState<string[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const currentFileRef = useRef<string | null>(null);
+  const { addRecording } = useRecordings();
 
   const getFreq = () => parseInt(frequency === 'custom' ? customFrequency : frequency, 10) * 60 * 1000;
   const getDur = () => parseInt(duration === 'custom' ? customDuration : duration, 10) * 1000;
 
   const startRecording = async () => {
     try {
-      const result = await audioRecorderPlayer.startRecorder();
-      // Stop after duration
+      const now = new Date();
+      const fileName = `sound_${now.getTime()}.mp4`;
+      const filePath =
+        Platform.OS === 'android'
+          ? `/data/user/0/com.emotionsensemobile/cache/${fileName}`
+          : fileName;
+      currentFileRef.current = filePath;
+      startTimeRef.current = Date.now();
+      await audioRecorderPlayer.startRecorder(filePath);
       timeoutRef.current = setTimeout(async () => {
         await stopRecording();
       }, getDur());
@@ -60,7 +70,18 @@ const ActivationScreen: React.FC = () => {
   const stopRecording = async () => {
     try {
       const result = await audioRecorderPlayer.stopRecorder();
-      if (result) setRecordings(prev => [...prev, result]);
+      if (result && currentFileRef.current) {
+        const now = new Date();
+        const endTime = Date.now();
+        const length = endTime - startTimeRef.current;
+        addRecording({
+          path: currentFileRef.current,
+          length,
+          date: now.toLocaleDateString(),
+          time: now.toLocaleTimeString(),
+        });
+        currentFileRef.current = null;
+      }
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (e) {
       console.warn('Failed to stop recording', e);
@@ -155,11 +176,6 @@ const ActivationScreen: React.FC = () => {
       <Text style={styles.permissionNote}>
         Permissions for microphone, storage, and background use will be requested on first analysis.
       </Text>
-      <Divider style={{ marginVertical: 16 }} />
-      <Text style={styles.label}>Recordings:</Text>
-      {recordings.map((rec, idx) => (
-        <Text key={idx} style={{ fontSize: 12 }}>{rec}</Text>
-      ))}
     </View>
   );
 };
