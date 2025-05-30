@@ -1,0 +1,40 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+Naming
+1.	Names are descriptive and meaningful
+2.	Names use pronounceable and searchable words
+3.	Variable and function names explain purpose, not mechanics
+4.	Classes and modules have clear domain-specific names
+________________________________________
+Functions
+5.	Functions are small (5–15 lines ideally)
+6.	Functions do one thing only
+7.	Function names are verbs or verb phrases
+8.	Arguments are minimal (ideally 0–2)
+9.	Avoid flag arguments (e.g. isAdmin = true)
+10.	Function side effects are explicit and intentional
+________________________________________
+Code Structure
+11.	Code follows the Single Responsibility Principle
+12.	Files and classes are short and focused
+13.	Duplication is removed (DRY principle)
+14.	Logic is decomposed into reusable parts
+________________________________________
+Comments
+15.	Code is self-explanatory, not dependent on comments
+16.	Only use comments for why, not what the code does
+17.	No outdated or misleading comments
+________________________________________
+ Cleanliness & Practices
+18.	No dead code (unused variables, functions)
+19.	No commented-out code blocks left in final code
+20.	Code follows language conventions and style guide
+21.	Proper error handling (not just silent fails)
+22.	Consistent formatting and indentation
+23.	Code is refactored regularly, not just written once
+
+

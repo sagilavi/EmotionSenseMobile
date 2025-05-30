@@ -1,0 +1,26 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+S – Single Responsibility Principle (SRP)
+A class should have one, and only one, reason to change.
+Meaning: Each class should do one thing only—be focused and cohesive.
+
+O – Open/Closed Principle (OCP)
+Software entities should be open for extension, but closed for modification.
+Meaning: You should be able to add new features without changing existing code (e.g., via inheritance or interfaces).
+
+L – Liskov Substitution Principle (LSP)
+Subtypes must be substitutable for their base types.
+Meaning: Objects of a subclass should work the same way as the superclass without breaking functionality.
+
+I – Interface Segregation Principle (ISP)
+Clients should not be forced to depend on interfaces they do not use.
+Meaning: Keep interfaces small and specific, not bloated with unrelated methods.
+
+D – Dependency Inversion Principle (DIP)
+Depend on abstractions, not on concretions.
+
+Meaning: High-level modules shouldn't depend on low-level ones; both should depend on interfaces.
