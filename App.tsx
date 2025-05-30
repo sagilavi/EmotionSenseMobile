@@ -7,17 +7,18 @@
 
 import React from 'react';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { AppProvider } from './src/context/AppContext';
+import { RecordingsProvider } from './src/context/RecordingsContext';
+import { FeaturesProvider } from './src/context/RecordingsContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
-const App: React.FC = () => {
-  return (
-    <PaperProvider>
-      <AppProvider>
+const App = () => (
+  <PaperProvider>
+    <RecordingsProvider>
+      <FeaturesProvider>
         <AppNavigator />
-      </AppProvider>
-    </PaperProvider>
-  );
-};
+      </FeaturesProvider>
+    </RecordingsProvider>
+  </PaperProvider>
+);
 
 export default App;

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { AcousticFeatures } from '../AcousticFeatures';
 
 export interface RecordingItem {
   path: string;
@@ -31,5 +32,34 @@ export const RecordingsProvider: React.FC<{ children: ReactNode }> = ({ children
 export const useRecordings = () => {
   const context = useContext(RecordingsContext);
   if (!context) throw new Error('useRecordings must be used within RecordingsProvider');
+  return context;
+};
+
+// --- Acoustic Features Context ---
+
+interface FeaturesContextType {
+  features: AcousticFeatures[];
+  addFeatures: (features: AcousticFeatures) => void;
+}
+
+const FeaturesContext = createContext<FeaturesContextType | undefined>(undefined);
+
+export const FeaturesProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [features, setFeatures] = useState<AcousticFeatures[]>([]);
+
+  const addFeatures = (feature: AcousticFeatures) => {
+    setFeatures(prev => [...prev, feature]);
+  };
+
+  return (
+    <FeaturesContext.Provider value={{ features, addFeatures }}>
+      {children}
+    </FeaturesContext.Provider>
+  );
+};
+
+export const useFeatures = () => {
+  const context = useContext(FeaturesContext);
+  if (!context) throw new Error('useFeatures must be used within FeaturesProvider');
   return context;
 }; 

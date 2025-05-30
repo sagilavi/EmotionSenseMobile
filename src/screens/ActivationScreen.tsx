@@ -4,9 +4,16 @@ import { Text, Button, Title, RadioButton, TextInput, Divider } from 'react-nati
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import { useRecordings } from '../context/RecordingsContext';
+import { useFeatures } from '../context/RecordingsContext';
+import { extractAcousticFeatures } from '../featureExtraction';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
+/**
+ * Gets microphone permission from the OS.
+ * Called before starting a recording to ensure permissions are granted.
+ * Returns true if permission is granted, false otherwise.
+ */
 const getMicrophonePermission = async () => {
   const micPerm = Platform.select({
     ios: PERMISSIONS.IOS.MICROPHONE,
@@ -19,6 +26,11 @@ const getMicrophonePermission = async () => {
   return result === RESULTS.GRANTED;
 };
 
+/**
+ * Gets background audio permission (Android only).
+ * Called before starting a recording to ensure permissions are granted.
+ * Returns true if permission is granted, false otherwise.
+ */
 const getBackgroundAudioPermission = async () => {
   if (Platform.OS === 'android') {
     const bgPerm = PERMISSIONS.ANDROID.RECORD_AUDIO;
@@ -33,6 +45,7 @@ const getBackgroundAudioPermission = async () => {
 };
 
 const ActivationScreen: React.FC = () => {
+  // State and refs for recording and scheduling
   const [analyzing, setAnalyzing] = useState(false);
   const [frequency, setFrequency] = useState('5');
   const [customFrequency, setCustomFrequency] = useState('');
@@ -44,10 +57,27 @@ const ActivationScreen: React.FC = () => {
   const startTimeRef = useRef<number>(0);
   const currentFileRef = useRef<string | null>(null);
   const { addRecording } = useRecordings();
+  const { addFeatures } = useFeatures();
 
+  /**
+   * Gets the frequency (interval) for scheduled recordings in ms.
+   * Reads from frequency state (user input).
+   * Returns frequency in milliseconds.
+   */
   const getFreq = () => parseInt(frequency === 'custom' ? customFrequency : frequency, 10) * 60 * 1000;
+
+  /**
+   * Gets the duration for each recording in ms.
+   * Reads from duration state (user input).
+   * Returns duration in milliseconds.
+   */
   const getDur = () => parseInt(duration === 'custom' ? customDuration : duration, 10) * 1000;
 
+  /**
+   * Starts a new audio recording and schedules stop after duration.
+   * Called when user starts analysis or on schedule.
+   * No output, but updates refs and schedules stop.
+   */
   const startRecording = async () => {
     try {
       const now = new Date();
@@ -67,6 +97,11 @@ const ActivationScreen: React.FC = () => {
     }
   };
 
+  /**
+   * Stops the current audio recording, saves recording info, and extracts features.
+   * Called after recording duration or when user stops analysis.
+   * Adds recording to context and triggers feature extraction.
+   */
   const stopRecording = async () => {
     try {
       const result = await audioRecorderPlayer.stopRecorder();
@@ -74,12 +109,23 @@ const ActivationScreen: React.FC = () => {
         const now = new Date();
         const endTime = Date.now();
         const length = endTime - startTimeRef.current;
-        addRecording({
+        const recordingItem = {
           path: currentFileRef.current,
           length,
           date: now.toLocaleDateString(),
           time: now.toLocaleTimeString(),
-        });
+        };
+        addRecording(recordingItem);
+        // --- Feature Extraction Integration ---
+        // 1. Create a File object from the path (for now, use dummy data)
+        // 2. Call extractAcousticFeatures and addFeatures
+        // TODO: Replace with actual file reading logic if needed
+        const dummyFile = { name: recordingItem.path.split('/').pop() || '', arrayBuffer: async () => new ArrayBuffer(0) } as File;
+        const features = await extractAcousticFeatures(dummyFile);
+        if (features) {
+          addFeatures(features);
+        }
+        // --- End Feature Extraction ---
         currentFileRef.current = null;
       }
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -88,6 +134,11 @@ const ActivationScreen: React.FC = () => {
     }
   };
 
+  /**
+   * Schedules recurring recordings at the selected frequency.
+   * Called when user starts analysis.
+   * No output, but sets up interval for startRecording.
+   */
   const scheduleRecording = () => {
     startRecording();
     intervalRef.current = setInterval(() => {
@@ -95,6 +146,11 @@ const ActivationScreen: React.FC = () => {
     }, getFreq());
   };
 
+  /**
+   * Clears any scheduled recordings and timeouts.
+   * Called when user pauses analysis or on unmount.
+   * No output, but clears intervals and timeouts.
+   */
   const clearRecordingSchedule = () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
@@ -102,6 +158,11 @@ const ActivationScreen: React.FC = () => {
     timeoutRef.current = null;
   };
 
+  /**
+   * Handles start/pause button press for analysis.
+   * Called from UI button.
+   * Starts or pauses analysis and manages permissions.
+   */
   const handleStartPause = async () => {
     if (!analyzing) {
       if (!hasAskedPermission) {
@@ -122,6 +183,7 @@ const ActivationScreen: React.FC = () => {
     }
   };
 
+  // Cleanup on unmount
   React.useEffect(() => {
     return () => {
       clearRecordingSchedule();
