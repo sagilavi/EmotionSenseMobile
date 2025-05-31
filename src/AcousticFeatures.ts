@@ -11,4 +11,6 @@ export interface AcousticFeatures {
   pitchVariability: number;
   speechRate: number;
   filename?: string;
+  date?: string;
+  time?: string;
 } 

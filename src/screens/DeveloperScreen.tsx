@@ -11,8 +11,11 @@ const audioRecorderPlayer = new AudioRecorderPlayer();
 const playIcon = require('../../assets/playicon.png');
 const pauseIcon = require('../../assets/pauseicon.png');
 
+// Table columns for features, including date and hour
 const featureColumns: { key: keyof AcousticFeatures; label: string }[] = [
   { key: 'filename', label: 'File' },
+  { key: 'date', label: 'Date' },
+  { key: 'time', label: 'Hour' },
   { key: 'pitch', label: 'Pitch' },
   { key: 'hnr', label: 'HNR' },
   { key: 'loudness', label: 'Loudness' },
@@ -26,6 +29,30 @@ const featureColumns: { key: keyof AcousticFeatures; label: string }[] = [
   { key: 'speechRate', label: 'Speech Rate' },
 ];
 
+/**
+ * Helper to merge date/time from recordings into features if missing.
+ * Gets: features (from context), recordings (from context)
+ * Does: For each feature, finds the matching recording by filename and fills date/time if not present
+ * Outputs: Array of AcousticFeatures with date/time populated
+ */
+function mergeFeatureDateTime(features: AcousticFeatures[], recordings: RecordingItem[]): AcousticFeatures[] {
+  return features.map(feature => {
+    if (feature.date && feature.time) return feature;
+    const rec = recordings.find(r => r.path.split('/').pop() === feature.filename);
+    return {
+      ...feature,
+      date: feature.date || rec?.date,
+      time: feature.time || rec?.time,
+    };
+  });
+}
+
+/**
+ * DeveloperScreen displays all recordings and a table of extracted acoustic features.
+ * Gets: recordings and features from context
+ * Does: Renders a FlatList for recordings and a table for features, merging date/time from recordings
+ * Outputs: UI with playback and feature table
+ */
 const DeveloperScreen: React.FC = () => {
   const { recordings } = useRecordings();
   const { features } = useFeatures();
@@ -33,6 +60,12 @@ const DeveloperScreen: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const playRef = useRef(audioRecorderPlayer);
 
+  /**
+   * Handles playback of a recording item.
+   * Gets: RecordingItem from FlatList
+   * Does: Starts/stops playback and manages state
+   * Outputs: Updates playback state and UI
+   */
   const handlePlay = async (item: RecordingItem) => {
     if (playingPath === item.path && isPlaying) {
       await playRef.current.stopPlayer();
@@ -54,6 +87,12 @@ const DeveloperScreen: React.FC = () => {
     });
   };
 
+  /**
+   * Renders a single recording item in the FlatList.
+   * Gets: RecordingItem
+   * Does: Displays filename, length, date, time, and play button
+   * Outputs: List.Item UI
+   */
   const renderItem = ({ item }: { item: RecordingItem }) => (
     <List.Item
       title={item.path.split('/').pop()}
@@ -70,6 +109,12 @@ const DeveloperScreen: React.FC = () => {
     />
   );
 
+  /**
+   * Renders a single row in the features table.
+   * Gets: AcousticFeatures item
+   * Does: Displays each feature value in a cell
+   * Outputs: View row for the table
+   */
   const renderFeatureRow = (item: AcousticFeatures) => (
     <View style={styles.row} key={item.filename}>
       {featureColumns.map(col => (
@@ -79,6 +124,9 @@ const DeveloperScreen: React.FC = () => {
       ))}
     </View>
   );
+
+  // Merge date/time from recordings into features for display
+  const featuresWithDateTime = mergeFeatureDateTime(features, recordings);
 
   return (
     <View style={styles.container}>
@@ -99,7 +147,20 @@ const DeveloperScreen: React.FC = () => {
               <Text style={[styles.cell, styles.headerCell]} key={col.key.toString()}>{col.label}</Text>
             ))}
           </View>
-          {features.map(renderFeatureRow)}
+          <FlatList
+            data={featuresWithDateTime}
+            keyExtractor={item => item.filename || Math.random().toString()}
+            renderItem={({ item }) => (
+              <View style={styles.row}>
+                {featureColumns.map(col => (
+                  <Text style={styles.cell} key={col.key.toString()} numberOfLines={1}>
+                    {item[col.key] !== undefined ? String(item[col.key]) : ''}
+                  </Text>
+                ))}
+              </View>
+            )}
+            style={{ maxHeight: 300 }}
+          />
         </View>
       </ScrollView>
     </View>
