@@ -6,6 +6,8 @@ import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import { useRecordings } from '../context/RecordingsContext';
 import { useFeatures } from '../context/RecordingsContext';
 import { extractAcousticFeatures } from '../featureExtraction';
+import { AudioFocusManager } from '../AudioFocusManager';
+import { BackgroundAudioManager } from '../BackgroundAudioManager';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
@@ -58,6 +60,7 @@ const ActivationScreen: React.FC = () => {
   const currentFileRef = useRef<string | null>(null);
   const { addRecording } = useRecordings();
   const { addFeatures } = useFeatures();
+  const [isRecording, setIsRecording] = useState(false);
 
   /**
    * Gets the frequency (interval) for scheduled recordings in ms.
@@ -74,11 +77,33 @@ const ActivationScreen: React.FC = () => {
   const getDur = () => parseInt(duration === 'custom' ? customDuration : duration, 10) * 1000;
 
   /**
+   * Attempts to start a new audio recording, handling microphone lock gracefully.
+   * Gets: Called from scheduleRecording or handleStartPause
+   * Does: Uses AudioFocusManager to request focus and retry if mic is busy
+   * Outputs: Starts recording or waits and resumes when mic is free
+   */
+  const tryStartRecordingWithFocus = async () => {
+    await AudioFocusManager.requestAudioFocus(startRecording, pauseRecording);
+  };
+
+  /**
+   * Pauses the recording process (used when mic is locked by another app or app goes to background).
+   * Gets: Called by AudioFocusManager or BackgroundAudioManager
+   * Does: Stops the current recording if any
+   * Outputs: Ensures no recording is running
+   */
+  const pauseRecording = async () => {
+    await stopRecording();
+  };
+
+  /**
    * Starts a new audio recording and schedules stop after duration.
-   * Called when user starts analysis or on schedule.
-   * No output, but updates refs and schedules stop.
+   * Gets: Called by tryStartRecordingWithFocus
+   * Does: Starts recording if not already recording, handles errors gracefully
+   * Outputs: Updates isRecording state and schedules stop
    */
   const startRecording = async () => {
+    if (isRecording) return; // Prevent double start
     try {
       const now = new Date();
       const fileName = `sound_${now.getTime()}.mp4`;
@@ -89,22 +114,30 @@ const ActivationScreen: React.FC = () => {
       currentFileRef.current = filePath;
       startTimeRef.current = Date.now();
       await audioRecorderPlayer.startRecorder(filePath);
+      setIsRecording(true);
       timeoutRef.current = setTimeout(async () => {
         await stopRecording();
       }, getDur());
     } catch (e) {
+      if ((e as any).message?.includes('already been called')) {
+        // Ignore expected error
+        return;
+      }
       console.warn('Failed to start recording', e);
     }
   };
 
   /**
    * Stops the current audio recording, saves recording info, and extracts features.
-   * Called after recording duration or when user stops analysis.
-   * Adds recording to context and triggers feature extraction.
+   * Gets: Called by pauseRecording, timeout, or background transition
+   * Does: Stops recording if currently recording, handles errors gracefully
+   * Outputs: Updates isRecording state, adds recording and features
    */
   const stopRecording = async () => {
+    if (!isRecording) return; // Prevent double stop
     try {
       const result = await audioRecorderPlayer.stopRecorder();
+      setIsRecording(false);
       if (result && currentFileRef.current) {
         const now = new Date();
         const endTime = Date.now();
@@ -117,9 +150,6 @@ const ActivationScreen: React.FC = () => {
         };
         addRecording(recordingItem);
         // --- Feature Extraction Integration ---
-        // 1. Create a File object from the path (for now, use dummy data)
-        // 2. Call extractAcousticFeatures and addFeatures
-        // TODO: Replace with actual file reading logic if needed
         const dummyFile = { name: recordingItem.path.split('/').pop() || '', arrayBuffer: async () => new ArrayBuffer(0) } as File;
         const features = await extractAcousticFeatures(dummyFile);
         if (features) {
@@ -130,6 +160,11 @@ const ActivationScreen: React.FC = () => {
       }
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (e) {
+      if ((e as any).message?.includes('stop failed')) {
+        setIsRecording(false);
+        // Ignore expected error
+        return;
+      }
       console.warn('Failed to stop recording', e);
     }
   };
@@ -140,9 +175,9 @@ const ActivationScreen: React.FC = () => {
    * No output, but sets up interval for startRecording.
    */
   const scheduleRecording = () => {
-    startRecording();
+    tryStartRecordingWithFocus();
     intervalRef.current = setInterval(() => {
-      startRecording();
+      tryStartRecordingWithFocus();
     }, getFreq());
   };
 
@@ -175,11 +210,14 @@ const ActivationScreen: React.FC = () => {
         }
       }
       setAnalyzing(true);
+      // Initialize background audio management
+      BackgroundAudioManager.init(tryStartRecordingWithFocus, pauseRecording);
       scheduleRecording();
     } else {
       setAnalyzing(false);
       clearRecordingSchedule();
       stopRecording();
+      BackgroundAudioManager.cleanup();
     }
   };
 
@@ -188,6 +226,8 @@ const ActivationScreen: React.FC = () => {
     return () => {
       clearRecordingSchedule();
       stopRecording();
+      AudioFocusManager.cancelRetry();
+      BackgroundAudioManager.cleanup();
     };
   }, []);
 

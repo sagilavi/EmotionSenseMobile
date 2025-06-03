@@ -12,13 +12,13 @@ import { FeaturesProvider } from './src/context/RecordingsContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 const App = () => (
-  <PaperProvider>
+    <PaperProvider>
     <RecordingsProvider>
       <FeaturesProvider>
         <AppNavigator />
       </FeaturesProvider>
     </RecordingsProvider>
-  </PaperProvider>
-);
+    </PaperProvider>
+  );
 
 export default App;

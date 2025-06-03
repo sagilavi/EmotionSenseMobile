@@ -1,0 +1,51 @@
+📝 Production-Ready To-Do List: ForegroundAudioService for Background Audio Recording
+1. Native Android Service Implementation (Java/Kotlin)
+[ ] Create ForegroundAudioService class in android/app/src/main/java/com/yourapp/ForegroundAudioService.java or .kt
+[ ] Add detailed comments to each function (what it gets, what it does, what it outputs)
+[ ] Implement service lifecycle: onCreate, onStartCommand, onDestroy
+[ ] Start service in foreground with a persistent notification
+[ ] Handle audio recording start/stop using MediaRecorder or AudioRecord
+[ ] Ensure service restarts if killed (use START_STICKY)
+[ ] Handle microphone resource conflicts gracefully
+[ ] Create a notification channel for Android 8.0+ (Oreo)
+[ ] Customize notification text, icon, and actions
+2. React Native Bridge (Native Module)
+[ ] Create a Native Module (e.g., ForegroundServiceModule)
+[ ] Expose methods to JS: startService, stopService, isServiceRunning
+[ ] Add comments for each method (what it gets, what it does, what it outputs)
+[ ] Ensure thread safety and error handling
+[ ] Register the module in your app’s MainApplication.java/MainApplication.kt
+3. Permissions and Manifest
+[ ] Update AndroidManifest.xml
+[x] Add <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+[x] Add <service ... android:foregroundServiceType="microphone" ... />
+[ ] Add <uses-permission android:name="android.permission.RECORD_AUDIO" />
+[ ] Add <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> (if saving files)
+4. JS/TS Integration
+[ ] Create a JS/TS wrapper for the native module (e.g., BackgroundAudioManager.ts)
+[ ] Add methods to start/stop the service from React Native
+[ ] Add comments for each function (what it gets, what it does, what it outputs)
+[ ] Ensure all calls are promise-based and error-handled
+[ ] Integrate with your recording flow
+[ ] Start the foreground service before starting audio recording
+[ ] Stop the service after recording is finished
+[ ] Handle app lifecycle events (background/foreground/kill)
+5. Testing and UX
+[ ] Test on real devices (not just emulator)
+[ ] Test background recording (app in background, screen off, app killed)
+[ ] Test microphone conflicts (calls, other apps)
+[ ] Test notification appearance and actions
+[ ] Adjust notification text/icons for your branding
+[ ] Add user feedback (optional: subtle indicator when recording is paused due to mic conflict)
+6. Open/Closed Principle & Modularity
+[ ] Keep all native code in separate files (no changes to existing JS/TS unless integrating the new manager)
+[ ] Expose only necessary methods to JS/TS (no direct service logic in React Native)
+[ ] Document all new code with clear comments for future maintainers
+7. (Optional) Advanced Features
+[ ] Handle service restarts after device reboot (use BroadcastReceiver)
+[ ] Support for custom notification actions (pause/resume/stop from notification)
+[ ] Audio file management (auto-save, cleanup, upload)
+8. Documentation
+[ ] Document all steps and code for future developers
+[ ] Add README section for background audio recording setup
+This checklist ensures a robust, modular, and future-proof implementation that will not interfere with your current app logic.
