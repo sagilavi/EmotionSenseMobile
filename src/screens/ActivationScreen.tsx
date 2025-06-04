@@ -60,7 +60,6 @@ const ActivationScreen: React.FC = () => {
   const currentFileRef = useRef<string | null>(null);
   const { addRecording } = useRecordings();
   const { addFeatures } = useFeatures();
-  const [isRecording, setIsRecording] = useState(false);
 
   /**
    * Gets the frequency (interval) for scheduled recordings in ms.
@@ -93,17 +92,19 @@ const ActivationScreen: React.FC = () => {
    * Outputs: Ensures no recording is running
    */
   const pauseRecording = async () => {
-    await stopRecording();
+    try {
+      await audioRecorderPlayer.stopRecorder();
+    } catch (e) {
+      // Silently ignore errors
+    }
   };
 
   /**
    * Starts a new audio recording and schedules stop after duration.
-   * Gets: Called by tryStartRecordingWithFocus
-   * Does: Starts recording if not already recording, handles errors gracefully
-   * Outputs: Updates isRecording state and schedules stop
+   * Called when user starts analysis or on schedule.
+   * No output, but updates refs and schedules stop.
    */
   const startRecording = async () => {
-    if (isRecording) return; // Prevent double start
     try {
       const now = new Date();
       const fileName = `sound_${now.getTime()}.mp4`;
@@ -114,30 +115,22 @@ const ActivationScreen: React.FC = () => {
       currentFileRef.current = filePath;
       startTimeRef.current = Date.now();
       await audioRecorderPlayer.startRecorder(filePath);
-      setIsRecording(true);
       timeoutRef.current = setTimeout(async () => {
         await stopRecording();
       }, getDur());
     } catch (e) {
-      if ((e as any).message?.includes('already been called')) {
-        // Ignore expected error
-        return;
-      }
       console.warn('Failed to start recording', e);
     }
   };
 
   /**
    * Stops the current audio recording, saves recording info, and extracts features.
-   * Gets: Called by pauseRecording, timeout, or background transition
-   * Does: Stops recording if currently recording, handles errors gracefully
-   * Outputs: Updates isRecording state, adds recording and features
+   * Called after recording duration or when user stops analysis.
+   * Adds recording to context and triggers feature extraction.
    */
   const stopRecording = async () => {
-    if (!isRecording) return; // Prevent double stop
     try {
       const result = await audioRecorderPlayer.stopRecorder();
-      setIsRecording(false);
       if (result && currentFileRef.current) {
         const now = new Date();
         const endTime = Date.now();
@@ -150,6 +143,9 @@ const ActivationScreen: React.FC = () => {
         };
         addRecording(recordingItem);
         // --- Feature Extraction Integration ---
+        // 1. Create a File object from the path (for now, use dummy data)
+        // 2. Call extractAcousticFeatures and addFeatures
+        // TODO: Replace with actual file reading logic if needed
         const dummyFile = { name: recordingItem.path.split('/').pop() || '', arrayBuffer: async () => new ArrayBuffer(0) } as File;
         const features = await extractAcousticFeatures(dummyFile);
         if (features) {
@@ -160,11 +156,6 @@ const ActivationScreen: React.FC = () => {
       }
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (e) {
-      if ((e as any).message?.includes('stop failed')) {
-        setIsRecording(false);
-        // Ignore expected error
-        return;
-      }
       console.warn('Failed to stop recording', e);
     }
   };
