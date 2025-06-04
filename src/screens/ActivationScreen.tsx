@@ -11,6 +11,9 @@ import { BackgroundAudioManager } from '../BackgroundAudioManager';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
+// Ref to track if a recording is currently in progress
+const isRecordingRef = { current: false };
+
 /**
  * Gets microphone permission from the OS.
  * Called before starting a recording to ensure permissions are granted.
@@ -92,8 +95,10 @@ const ActivationScreen: React.FC = () => {
    * Outputs: Ensures no recording is running
    */
   const pauseRecording = async () => {
+    if (!isRecordingRef.current) return;
     try {
       await audioRecorderPlayer.stopRecorder();
+      isRecordingRef.current = false;
     } catch (e) {
       // Silently ignore errors
     }
@@ -101,10 +106,12 @@ const ActivationScreen: React.FC = () => {
 
   /**
    * Starts a new audio recording and schedules stop after duration.
-   * Called when user starts analysis or on schedule.
-   * No output, but updates refs and schedules stop.
+   * Gets: Called from scheduleRecording or background/foreground transitions.
+   * Does: Starts recording only if not already recording.
+   * Outputs: Updates isRecordingRef and schedules stop.
    */
   const startRecording = async () => {
+    if (isRecordingRef.current) return;
     try {
       const now = new Date();
       const fileName = `sound_${now.getTime()}.mp4`;
@@ -115,22 +122,26 @@ const ActivationScreen: React.FC = () => {
       currentFileRef.current = filePath;
       startTimeRef.current = Date.now();
       await audioRecorderPlayer.startRecorder(filePath);
+      isRecordingRef.current = true;
       timeoutRef.current = setTimeout(async () => {
         await stopRecording();
       }, getDur());
     } catch (e) {
-      console.warn('Failed to start recording', e);
+      // Silently ignore errors to prevent warning spam
     }
   };
 
   /**
    * Stops the current audio recording, saves recording info, and extracts features.
-   * Called after recording duration or when user stops analysis.
-   * Adds recording to context and triggers feature extraction.
+   * Gets: Called after duration or when user stops analysis.
+   * Does: Stops recording only if currently recording.
+   * Outputs: Updates isRecordingRef, adds recording/features.
    */
   const stopRecording = async () => {
+    if (!isRecordingRef.current) return;
     try {
       const result = await audioRecorderPlayer.stopRecorder();
+      isRecordingRef.current = false;
       if (result && currentFileRef.current) {
         const now = new Date();
         const endTime = Date.now();
@@ -156,7 +167,7 @@ const ActivationScreen: React.FC = () => {
       }
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (e) {
-      console.warn('Failed to stop recording', e);
+      // Silently ignore errors to prevent warning spam
     }
   };
 
