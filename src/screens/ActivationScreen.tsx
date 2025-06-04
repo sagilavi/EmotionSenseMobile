@@ -113,6 +113,7 @@ const ActivationScreen: React.FC = () => {
   const startRecording = async () => {
     if (isRecordingRef.current) return;
     try {
+      console.log('[Recording] startRecording called');
       const now = new Date();
       const fileName = `sound_${now.getTime()}.mp4`;
       const filePath =
@@ -123,10 +124,12 @@ const ActivationScreen: React.FC = () => {
       startTimeRef.current = Date.now();
       await audioRecorderPlayer.startRecorder(filePath);
       isRecordingRef.current = true;
+      console.log('[Recording] Recording started:', filePath);
       timeoutRef.current = setTimeout(async () => {
         await stopRecording();
       }, getDur());
     } catch (e) {
+      console.log('[Recording] Failed to start recording', e);
       // Silently ignore errors to prevent warning spam
     }
   };
@@ -140,6 +143,7 @@ const ActivationScreen: React.FC = () => {
   const stopRecording = async () => {
     if (!isRecordingRef.current) return;
     try {
+      console.log('[Recording] stopRecording called');
       const result = await audioRecorderPlayer.stopRecorder();
       isRecordingRef.current = false;
       if (result && currentFileRef.current) {
@@ -164,9 +168,11 @@ const ActivationScreen: React.FC = () => {
         }
         // --- End Feature Extraction ---
         currentFileRef.current = null;
+        console.log('[Recording] Recording stopped and features extracted:', recordingItem.path);
       }
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     } catch (e) {
+      console.log('[Recording] Failed to stop recording', e);
       // Silently ignore errors to prevent warning spam
     }
   };
