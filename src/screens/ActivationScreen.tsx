@@ -8,6 +8,8 @@ import { useFeatures } from '../context/RecordingsContext';
 import { extractAcousticFeatures } from '../featureExtraction';
 import { AudioFocusManager } from '../AudioFocusManager';
 import { BackgroundAudioManager } from '../BackgroundAudioManager';
+import { BackgroundRecordingManager } from '../BackgroundRecordingManager';
+
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
@@ -57,7 +59,6 @@ const ActivationScreen: React.FC = () => {
   const [duration, setDuration] = useState('20');
   const [customDuration, setCustomDuration] = useState('');
   const [hasAskedPermission, setHasAskedPermission] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startTimeRef = useRef<number>(0);
   const currentFileRef = useRef<string | null>(null);
@@ -178,25 +179,32 @@ const ActivationScreen: React.FC = () => {
   };
 
   /**
-   * Schedules recurring recordings at the selected frequency.
-   * Called when user starts analysis.
-   * No output, but sets up interval for startRecording.
+   * Schedules recurring recordings using BackgroundRecordingManager for background compatibility.
+   * Gets: Called when user starts analysis, reads frequency from state
+   * Does: Uses BackgroundRecordingManager to set up background-safe recording intervals
+   * Outputs: Starts background recording timer that works even when app is backgrounded
    */
   const scheduleRecording = () => {
-    tryStartRecordingWithFocus();
-    intervalRef.current = setInterval(() => {
+    const success = BackgroundRecordingManager.startBackgroundRecording(
+      tryStartRecordingWithFocus,
+      getFreq()
+    );
+    
+    if (!success) {
+      console.error('[ActivationScreen] Failed to start background recording');
+      // Start first recording immediately as fallback
       tryStartRecordingWithFocus();
-    }, getFreq());
+    }
   };
 
   /**
-   * Clears any scheduled recordings and timeouts.
-   * Called when user pauses analysis or on unmount.
-   * No output, but clears intervals and timeouts.
+   * Clears background recording schedule and all timeouts.
+   * Gets: Called when user pauses analysis or on component unmount
+   * Does: Stops BackgroundRecordingManager and clears any pending timeouts
+   * Outputs: Ensures all recording activities are stopped and cleaned up
    */
   const clearRecordingSchedule = () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
+    BackgroundRecordingManager.stopBackgroundRecording();
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
   };
@@ -231,11 +239,18 @@ const ActivationScreen: React.FC = () => {
 
   // Cleanup on unmount
   React.useEffect(() => {
+    /**
+     * Cleanup function called when component unmounts.
+     * Gets: Triggered by React when component is unmounted
+     * Does: Stops all recording activities and cleans up all managers
+     * Outputs: Ensures no memory leaks or background processes remain active
+     */
     return () => {
       clearRecordingSchedule();
       stopRecording();
       AudioFocusManager.cancelRetry();
       BackgroundAudioManager.cleanup();
+      BackgroundRecordingManager.stopBackgroundRecording();
     };
   }, []);
 
